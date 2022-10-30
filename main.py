@@ -15,7 +15,8 @@ class Post(BaseModel):
     rating: Optional[int] = None
 
 
-my_posts = [{"title": "title1", "content": "content1", "id": 1}]
+my_posts = [{"title1": "title1", "content": "content1", "id": 1},
+            {"title2": "title2", "content": "content2", "id": 2}]
 
 
 def find_id(id):
@@ -42,7 +43,18 @@ def create_post(post: Post):
     return {"data": new_post}
 
 
-@app.get("/posts/{id}")
-def get_posts_id(id):
-    post = find_id(int(id))
+@app.get("/posts/latest")
+def get_latest_post():
+    post = my_posts[-1]
     return {"Your post": post}
+
+
+@app.get("/posts/{id}")
+def get_posts_id(id: int):
+    try:
+        post = find_id(id)
+    except ValueError as err:
+        return {"Error": err}
+    return {"Your post": post}
+
+
