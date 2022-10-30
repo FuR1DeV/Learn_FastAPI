@@ -1,6 +1,6 @@
 from typing import Union, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status, HTTPException
 from fastapi.params import Body
 from pydantic import BaseModel
 from random import randrange
@@ -35,7 +35,7 @@ def posts_get():
     return {"data": my_posts}
 
 
-@app.post("/posts")
+@app.post("/posts", status_code=status.HTTP_201_CREATED)
 def create_post(post: Post):
     new_post = post.dict()
     new_post['id'] = randrange(1, 100000)
@@ -50,11 +50,16 @@ def get_latest_post():
 
 
 @app.get("/posts/{id}")
-def get_posts_id(id: int):
-    try:
-        post = find_id(id)
-    except ValueError as err:
-        return {"Error": err}
+def get_posts_id(id: int, response: Response):
+
+    post = find_id(id)
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Your {id} was not found")
+        # response.status_code = status.HTTP_404_NOT_FOUND
     return {"Your post": post}
+
+
+
 
 
