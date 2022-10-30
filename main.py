@@ -1,28 +1,17 @@
-from fastapi import FastAPI
+from typing import Union
 
-from typing import Optional
+from fastapi import FastAPI
+from fastapi.params import Body
 
 app = FastAPI()
 
 
-@app.get("/blog")
-def index(limit=10, published: bool = True, sort: Optional[str] = None):
-    if published:
-        return {"data": f"published {limit} show db"}
-    else:
-        return {"data": f"NOT published {limit} show db"}
+@app.get("/")
+def any_def():
+    return {"Hello": "World"}
 
 
-@app.get("/blog/unpublished")
-def unpublished():
-    return {"data": "unpublished blog"}
+@app.post("/posts")
+def any_def2(payload: dict = Body(...)):
+    return {"Created title!": f"You title is {payload['Title']} | Content {payload['Content']}"}
 
-
-@app.get("/blog/{blog_id}")
-def about(blog_id: int):
-    return {"data": 'ads'}
-
-
-@app.get("/blog/{blog_id}/comments")
-def comments():
-    return {"data": {"1", "2"}}
