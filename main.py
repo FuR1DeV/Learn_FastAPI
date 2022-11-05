@@ -25,6 +25,12 @@ def find_id(id):
             return p
 
 
+def find_id_index(id):
+    for i, p in enumerate(my_posts):
+        if p["id"] == id:
+            return i
+
+
 @app.get("/")
 def hello():
     return {"Hello": "World"}
@@ -56,10 +62,16 @@ def get_posts_id(id: int, response: Response):
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Your {id} was not found")
-        # response.status_code = status.HTTP_404_NOT_FOUND
     return {"Your post": post}
 
 
-
+@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(id: int):
+    index = find_id_index(id)
+    if index is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="post does not exist")
+    my_posts.pop(index)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
