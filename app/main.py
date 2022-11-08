@@ -1,5 +1,4 @@
 from typing import Union, Optional
-
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
@@ -8,9 +7,9 @@ from psycopg2.extras import RealDictCursor
 import time
 from sqlalchemy.orm import Session
 
-from . import models
+from app import models
 import config
-from .database import engine, get_db
+from app.database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -31,7 +30,7 @@ while True:
                                 password=config.POSTGRESQL_PASSWORD,
                                 cursor_factory=RealDictCursor)
         cursor = conn.cursor()
-        print("Databases connection succesfull")
+        print("Databases connection successful")
         break
     except Exception as err:
         print(f"Connect failed | error - {err}")
@@ -65,17 +64,18 @@ def posts_get():
     return {"data": res}
 
 
+@app.get("/sqlalchemy")
+def al_posts_get(db: Session = Depends(get_db)):
+    res = db.query(models.Post).all()
+    return {"status": res}
+
+
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post):
-    cursor.execute("""
-    INSERT INTO posts (title, content) 
-    VALUES (%(title)s, %(content)s) RETURNING *;""", {
-        'title': post.title,
-        'content': post.content,
-        }
-    )
-    res = cursor.fetchone()
-    conn.commit()
+def create_post(post: Post, db: Session = Depends(get_db)):
+    res = models.Post(**post.dict())
+    db.add(res)
+    db.commit()
+    db.refresh(res)
     return {"New post!": res}
 
 
@@ -103,8 +103,8 @@ def delete_post(id: int):
     cursor.execute("""
         DELETE FROM posts WHERE id = %(id)s RETURNING *;""", {
         'id': id,
-        }
-    )
+    }
+                   )
     res = cursor.fetchone()
     conn.commit()
     if res is None:
@@ -118,11 +118,11 @@ def update_post(id: int, post: Post):
     cursor.execute("""
         UPDATE posts SET title = %(title)s, content = %(content)s 
         WHERE id = %(id)s RETURNING *;""", {
-            'id': id,
-            'title': post.title,
-            'content': post.content,
-        }
-    )
+        'id': id,
+        'title': post.title,
+        'content': post.content,
+    }
+                   )
     res = cursor.fetchone()
     conn.commit()
     if res is None:
