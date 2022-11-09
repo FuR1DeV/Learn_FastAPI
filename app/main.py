@@ -1,4 +1,4 @@
-from typing import Union, Optional
+from typing import Union, Optional, List
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
@@ -51,7 +51,7 @@ def hello():
     return {"Hello": "World"}
 
 
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post])
 def posts_get(db: Session = Depends(get_db)):
     res = db.query(models.Post).all()
     return res
@@ -66,7 +66,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     return res
 
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.Post)
 def get_posts_id(id: int, db: Session = Depends(get_db)):
     res = db.query(models.Post).filter(models.Post.id == id).first()
     if res is None:
@@ -86,7 +86,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@app.put("/posts/{id}")
+@app.put("/posts/{id}", response_model=schemas.Post)
 def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db)):
     new_post = db.query(models.Post).filter(models.Post.id == id)
 
@@ -99,3 +99,12 @@ def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends
     new_post.update(updated_post.dict(), synchronize_session=False)
     db.commit()
     return new_post.first()
+
+
+@app.post("/users", status_code=status.HTTP_201_CREATED)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    res = models.Post(**user.dict())
+    db.add(res)
+    db.commit()
+    db.refresh(res)
+    return res
