@@ -7,19 +7,13 @@ from psycopg2.extras import RealDictCursor
 import time
 from sqlalchemy.orm import Session
 
-from app import models
+from app import models, schemas
 import config
 from app.database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
 
 
 while True:
@@ -58,75 +52,50 @@ def hello():
 
 
 @app.get("/posts")
-def posts_get():
-    cursor.execute("SELECT * FROM posts;")
-    res = cursor.fetchall()
-    return {"data": res}
-
-
-@app.get("/sqlalchemy")
-def al_posts_get(db: Session = Depends(get_db)):
+def posts_get(db: Session = Depends(get_db)):
     res = db.query(models.Post).all()
-    return {"status": res}
+    return res
 
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post, db: Session = Depends(get_db)):
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     res = models.Post(**post.dict())
     db.add(res)
     db.commit()
     db.refresh(res)
-    return {"New post!": res}
-
-
-@app.get("/posts/latest")
-def get_latest_post():
-    cursor.execute("SELECT * FROM posts ORDER BY id DESC LIMIT 1;")
-    res = cursor.fetchone()
-    return {"Latest post": res}
+    return res
 
 
 @app.get("/posts/{id}")
-def get_posts_id(id: int, response: Response):
-    cursor.execute("SELECT * FROM posts WHERE id = %(id)s;", {
-        'id': id
-    })
-    res = cursor.fetchone()
+def get_posts_id(id: int, db: Session = Depends(get_db)):
+    res = db.query(models.Post).filter(models.Post.id == id).first()
     if res is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"post {id} does not exist")
-    return {"Your post": res}
+    return res
 
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int):
-    cursor.execute("""
-        DELETE FROM posts WHERE id = %(id)s RETURNING *;""", {
-        'id': id,
-    }
-                   )
-    res = cursor.fetchone()
-    conn.commit()
-    if res is None:
+def delete_post(id: int, db: Session = Depends(get_db)):
+    post = db.query(models.Post).filter(models.Post.id == id)
+    if post.first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="post does not exist")
+                            detail=f"post {id} does not exist")
+    post.delete(synchronize_session=False)
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-    cursor.execute("""
-        UPDATE posts SET title = %(title)s, content = %(content)s 
-        WHERE id = %(id)s RETURNING *;""", {
-        'id': id,
-        'title': post.title,
-        'content': post.content,
-    }
-                   )
-    res = cursor.fetchone()
-    conn.commit()
-    if res is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="post does not exist")
+def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db)):
+    new_post = db.query(models.Post).filter(models.Post.id == id)
 
-    return {"Updated": res}
+    post = new_post.first()
+
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"post {id} does not exist")
+
+    new_post.update(updated_post.dict(), synchronize_session=False)
+    db.commit()
+    return new_post.first()
