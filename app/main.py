@@ -1,15 +1,13 @@
+import time
 from typing import Union, Optional, List
 from fastapi import FastAPI, Response, status, HTTPException, Depends
-from fastapi.params import Body
-from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import time
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from . import models, schemas, utils
 import config
-from app.database import engine, get_db
+from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -101,10 +99,22 @@ def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends
     return new_post.first()
 
 
-@app.post("/users", status_code=status.HTTP_201_CREATED)
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    res = models.Post(**user.dict())
+
+    hashed_pass = utils.hashed(user.password)
+    user.password = hashed_pass
+    res = models.User(**user.dict())
     db.add(res)
     db.commit()
     db.refresh(res)
+    return res
+
+
+@app.get("/users/{id}", response_model=schemas.UserOut)
+def get_user(id: int, db: Session = Depends(get_db)):
+    res = db.query(models.User).filter(models.User.id == id).first()
+    if res is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"post {id} does not exist")
     return res
