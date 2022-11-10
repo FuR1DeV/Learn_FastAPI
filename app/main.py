@@ -6,6 +6,7 @@ from psycopg2.extras import RealDictCursor
 import config
 from . import models
 from .database import engine
+from .routers import user, post
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -26,6 +27,9 @@ while True:
         print(f"Connect failed | error - {err}")
         time.sleep(2)
 
+
+app.include_router(user.router)
+app.include_router(post.router)
 
 @app.get("/")
 def hello():
