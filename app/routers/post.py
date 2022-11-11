@@ -2,7 +2,7 @@ from typing import List
 from fastapi import status, HTTPException, Depends, APIRouter, Response
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, schemas, oauth2
 from ..database import get_db
 
 router = APIRouter(
@@ -12,13 +12,17 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[schemas.Post])
-def posts_get(db: Session = Depends(get_db)):
+def posts_get(db: Session = Depends(get_db),
+              user_id: int = Depends(oauth2.get_current_user)):
     res = db.query(models.Post).all()
     return res
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
-def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
+def create_post(post: schemas.PostCreate,
+                db: Session = Depends(get_db),
+                user_id: int = Depends(oauth2.get_current_user)):
+    print(user_id)
     res = models.Post(**post.dict())
     db.add(res)
     db.commit()
@@ -27,7 +31,9 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{id}", response_model=schemas.Post)
-def get_posts_id(id: int, db: Session = Depends(get_db)):
+def get_posts_id(id: int,
+                 db: Session = Depends(get_db),
+                 user_id: int = Depends(oauth2.get_current_user)):
     res = db.query(models.Post).filter(models.Post.id == id).first()
     if res is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -36,7 +42,9 @@ def get_posts_id(id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int, db: Session = Depends(get_db)):
+def delete_post(id: int,
+                db: Session = Depends(get_db),
+                user_id: int = Depends(oauth2.get_current_user)):
     post = db.query(models.Post).filter(models.Post.id == id)
     if post.first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -47,7 +55,10 @@ def delete_post(id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{id}", response_model=schemas.Post)
-def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db)):
+def update_post(id: int,
+                updated_post: schemas.PostCreate,
+                db: Session = Depends(get_db),
+                user_id: int = Depends(oauth2.get_current_user)):
     new_post = db.query(models.Post).filter(models.Post.id == id)
 
     post = new_post.first()
