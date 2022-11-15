@@ -3,3 +3,4 @@ __pycache__
 .DS_Store
 .env
 test.py
+test2.py

@@ -22,12 +22,11 @@ def posts_get(db: Session = Depends(get_db),
 def create_post(post: schemas.PostCreate,
                 db: Session = Depends(get_db),
                 current_user: int = Depends(oauth2.get_current_user)):
-    print(current_user.email)
-    res = models.Post(**post.dict())
-    db.add(res)
+    new_post = models.Post(owner_id=current_user.id, **post.dict())
+    db.add(new_post)
     db.commit()
-    db.refresh(res)
-    return res
+    db.refresh(new_post)
+    return new_post
 
 
 @router.get("/{id}", response_model=schemas.Post)
@@ -45,11 +44,15 @@ def get_posts_id(id: int,
 def delete_post(id: int,
                 db: Session = Depends(get_db),
                 current_user: int = Depends(oauth2.get_current_user)):
-    post = db.query(models.Post).filter(models.Post.id == id)
-    if post.first() is None:
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
+    if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"post {id} does not exist")
-    post.delete(synchronize_session=False)
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Not authorized")
+    post_query.delete(synchronize_session=False)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -66,7 +69,9 @@ def update_post(id: int,
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"post {id} does not exist")
-
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Not authorized")
     new_post.update(updated_post.dict(), synchronize_session=False)
     db.commit()
     return new_post.first()
