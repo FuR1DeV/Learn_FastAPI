@@ -13,7 +13,8 @@ router = APIRouter(
 
 @router.get("/", response_model=List[schemas.Post])
 def posts_get(db: Session = Depends(get_db),
-              current_user: int = Depends(oauth2.get_current_user)):
+              current_user: int = Depends(oauth2.get_current_user),
+              limit: int = 10):
     res = db.query(models.Post).all()
     return res
 
@@ -33,11 +34,14 @@ def create_post(post: schemas.PostCreate,
 def get_posts_id(id: int,
                  db: Session = Depends(get_db),
                  current_user: int = Depends(oauth2.get_current_user)):
-    res = db.query(models.Post).filter(models.Post.id == id).first()
-    if res is None:
+    post_query = db.query(models.Post).filter(models.Post.id == id).first()
+    if post_query is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"post {id} does not exist")
-    return res
+    if post_query.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Not authorized")
+    return post_query
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
